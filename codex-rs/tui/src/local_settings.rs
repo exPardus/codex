@@ -72,6 +72,8 @@ impl LocalSettings {
                 right_click_paste: config.tui_right_click_paste,
                 alternate_screen: config.tui_alternate_screen,
                 status_line: config.tui_status_line.clone(),
+                // Executable provenance is resolved from layers in the footer worker.
+                status_line_command: None,
                 status_line_use_colors: config.tui_status_line_use_colors,
                 terminal_title: config.tui_terminal_title.clone(),
                 theme: config.tui_theme.clone(),

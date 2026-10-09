@@ -54,6 +54,8 @@ const STATUS_LINE_USE_THEME_COLORS_ITEM_ID: &str = "status-line-use-theme-colors
 #[derive(EnumIter, EnumString, Display, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum StatusLineItem {
+    /// Cached output from a trusted, direct-argv command.
+    ExternalCommand,
     /// The current model name.
     #[strum(to_string = "model", serialize = "model-name")]
     ModelName,
@@ -164,6 +166,7 @@ impl StatusLineItem {
     /// User-visible description shown in the popup.
     pub(crate) fn description(self) -> &'static str {
         match self {
+            StatusLineItem::ExternalCommand => "Cached output from a trusted external command",
             StatusLineItem::ModelName => "Current model name",
             StatusLineItem::ModelWithReasoning => "Current model name with reasoning level",
             StatusLineItem::Reasoning => "Current reasoning level",
@@ -224,6 +227,7 @@ impl StatusLineItem {
 
     pub(crate) fn preview_item(self) -> StatusSurfacePreviewItem {
         match self {
+            StatusLineItem::ExternalCommand => StatusSurfacePreviewItem::ExternalCommand,
             StatusLineItem::ModelName => StatusSurfacePreviewItem::Model,
             StatusLineItem::ModelWithReasoning => StatusSurfacePreviewItem::ModelWithReasoning,
             StatusLineItem::Reasoning => StatusSurfacePreviewItem::Reasoning,

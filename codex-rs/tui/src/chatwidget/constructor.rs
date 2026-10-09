@@ -38,6 +38,26 @@ impl ChatWidget {
         let model = model.filter(|m| !m.trim().is_empty());
         let mut config = config;
         config.model = model.clone();
+        let status_line_external_owner = uuid::Uuid::new_v4();
+        let status_line_external_stop = if local_settings
+            .tui
+            .status_line
+            .as_ref()
+            .is_some_and(|items| items.iter().any(|item| item == "external-command"))
+            && crate::external_status_line::trusted_selection(&config.config_layer_stack)
+        {
+            crate::external_status_line::trusted_command(&config.config_layer_stack).and_then(
+                |command| {
+                    crate::external_status_line::start(
+                        command,
+                        app_event_tx.clone(),
+                        status_line_external_owner,
+                    )
+                },
+            )
+        } else {
+            None
+        };
         let prevent_idle_sleep = config.features.enabled(Feature::PreventIdleSleep);
         let placeholder = PLACEHOLDER.to_string();
         let side_placeholder = SIDE_PLACEHOLDER.to_string();
@@ -265,6 +285,9 @@ impl ChatWidget {
             terminal_title_next_refresh: None,
             status_line_project_root_name_cache: None,
             status_line_branch: None,
+            status_line_external_value: "fleet unavailable".to_string(),
+            status_line_external_owner,
+            status_line_external_stop,
             status_line_branch_cwd: None,
             status_line_branch_pending: false,
             status_line_branch_lookup_complete: false,

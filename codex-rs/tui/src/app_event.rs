@@ -1547,6 +1547,11 @@ pub(crate) enum AppEvent {
         cwd: PathBuf,
         branch: Option<String>,
     },
+    /// Completion from the one external composer-footer refresh worker.
+    StatusLineExternalUpdated {
+        owner: uuid::Uuid,
+        value: String,
+    },
     /// Async update of Git summary fields for status line rendering.
     StatusLineGitSummaryUpdated {
         cwd: PathBuf,

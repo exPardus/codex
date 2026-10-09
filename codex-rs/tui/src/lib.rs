@@ -147,6 +147,7 @@ mod exec_cell;
 mod exec_command;
 mod external_agent_config_migration;
 mod external_editor;
+mod external_status_line;
 mod file_search;
 mod get_git_diff;
 mod git_action_directives;
