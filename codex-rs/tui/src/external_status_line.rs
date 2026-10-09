@@ -4,6 +4,7 @@
 //! configuration layer. Rendering and input handling only read its cached value.
 
 use std::path::Path;
+use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -12,6 +13,7 @@ use codex_config::ConfigLayerStack;
 use codex_config::types::StatusLineCommand;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
+use tokio::sync::Semaphore;
 use tokio::sync::oneshot;
 
 use crate::app_event::AppEvent;
@@ -19,6 +21,9 @@ use crate::app_event_sender::AppEventSender;
 
 const UNAVAILABLE: &str = "fleet unavailable";
 const MAX_DISPLAY_CHARS: usize = 160;
+// A replacement ChatWidget is constructed before its predecessor is dropped.
+// The process gate spans widgets so that transition cannot overlap children.
+static CHILD_GATE: OnceLock<Semaphore> = OnceLock::new();
 
 /// Inspect provenance before reading the command table. The merged `Tui`
 /// value cannot prove where its executable came from.
@@ -141,6 +146,11 @@ async fn run_once(
     config: &StatusLineCommand,
     stop: &mut oneshot::Receiver<()>,
 ) -> Option<Result<String, ()>> {
+    let gate = CHILD_GATE.get_or_init(|| Semaphore::new(1));
+    let permit = tokio::select! {
+        _ = &mut *stop => return None,
+        acquired = gate.acquire() => acquired.ok()?,
+    };
     let mut command = Command::new(&config.command);
     command
         .args(&config.args)
@@ -153,7 +163,11 @@ async fn run_once(
         Err(_) => return Some(Err(())),
     };
     let Some(stdout) = child.stdout.take() else {
-        return terminate_and_reap(&mut child).await.then_some(Err(()));
+        if !terminate_and_reap(&mut child).await {
+            std::mem::forget(permit);
+            return None;
+        }
+        return Some(Err(()));
     };
     let mut bytes = Vec::new();
     let mut bounded_stdout = stdout.take((config.max_output_bytes + 1) as u64);
@@ -167,10 +181,18 @@ async fn run_once(
     };
     match result {
         None => {
-            terminate_and_reap(&mut child).await;
+            if !terminate_and_reap(&mut child).await {
+                std::mem::forget(permit);
+            }
             None
         }
-        Some(Err(_)) => terminate_and_reap(&mut child).await.then_some(Err(())),
+        Some(Err(_)) | Some(Ok((_, Err(_)))) => {
+            if !terminate_and_reap(&mut child).await {
+                std::mem::forget(permit);
+                return None;
+            }
+            Some(Err(()))
+        }
         Some(Ok((Ok(_), Ok(status))))
             if status.success() && bytes.len() <= config.max_output_bytes =>
         {
@@ -460,5 +482,39 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert!(rx.try_recv().is_err());
         stop.send(()).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn replacement_widgets_never_overlap_children() {
+        let marker =
+            std::env::temp_dir().join(format!("w184-footer-{}.lock", uuid::Uuid::new_v4()));
+        let program = "import os,sys,time; p=sys.argv[1];\ntry:\n f=os.open(p,os.O_CREAT|os.O_EXCL|os.O_WRONLY); os.close(f); print('solo',flush=True); time.sleep(.15); os.unlink(p)\nexcept FileExistsError: print('overlap',flush=True)";
+        let config = StatusLineCommand {
+            command: "/usr/bin/python3".into(),
+            args: vec![
+                "-c".into(),
+                program.into(),
+                marker.to_string_lossy().into_owned(),
+            ],
+            refresh_interval_ms: 5_000,
+            timeout_ms: 1_000,
+            max_output_bytes: 512,
+        };
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let sender = AppEventSender::new(tx);
+        let a = start(config.clone(), sender.clone(), uuid::Uuid::new_v4()).unwrap();
+        let b = start(config, sender, uuid::Uuid::new_v4()).unwrap();
+        for _ in 0..2 {
+            let event = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+                .await
+                .unwrap();
+            assert!(
+                matches!(event, Some(AppEvent::StatusLineExternalUpdated { value, .. }) if value == "solo")
+            );
+        }
+        a.send(()).unwrap();
+        b.send(()).unwrap();
+        assert!(!marker.exists());
     }
 }

@@ -30,7 +30,8 @@ malformed or unsupported command leaves `fleet unavailable` in the footer.
 The selected item can be changed in the status-line picker; a command table
 edited while Codex is running requires a fresh Codex process.
 
-One async worker per displayed chat widget runs the command. It starts only
+One async worker per displayed chat widget runs the command, with a process
+permit shared across widget replacements. It starts only
 when the item is selected, waits until each child finishes, then waits for the
 refresh interval. It never runs on a repaint or keypress. The allowed interval
 is 100 ms to 1 hour, timeout 50 ms to 5 seconds, and output limit 1 to 4096
