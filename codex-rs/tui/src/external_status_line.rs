@@ -367,6 +367,29 @@ mod tests {
     }
 
     #[test]
+    fn trusted_user_selection_activates_item() {
+        let path = AbsolutePathBuf::try_from(std::env::temp_dir()).unwrap();
+        let user = toml::from_str(
+            "[tui]\nstatus_line = [\"model-with-reasoning\", \"external-command\"]\n[tui.status_line_command]\ncommand = \"/usr/bin/true\"",
+        )
+        .unwrap();
+        let stack = ConfigLayerStack::new(
+            vec![ConfigLayerEntry::new(
+                ConfigLayerSource::User {
+                    file: path,
+                    profile: None,
+                },
+                user,
+            )],
+            ConfigRequirements::default(),
+            ConfigRequirementsToml::default(),
+        )
+        .unwrap();
+        assert!(trusted_selection(&stack));
+        assert_eq!(trusted_command(&stack).unwrap().command, "/usr/bin/true");
+    }
+
+    #[test]
     fn output_is_one_printable_bounded_line() {
         assert_eq!(
             sanitize(b"\x1b[31mhello\x1b[0m\x07\nignored"),
