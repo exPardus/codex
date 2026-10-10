@@ -4229,6 +4229,44 @@
         }
       ]
     },
+    "StatusLineCommand": {
+      "additionalProperties": false,
+      "description": "A direct executable and argv for one cached composer-footer item.",
+      "properties": {
+        "args": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "command": {
+          "type": "string"
+        },
+        "max_output_bytes": {
+          "default": 512,
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "refresh_interval_ms": {
+          "default": 5000,
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "timeout_ms": {
+          "default": 500,
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "type": "object"
+    },
     "ThreadStoreToml": {
       "oneOf": [
         {
@@ -4796,6 +4834,15 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "status_line_command": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/StatusLineCommand"
+            }
+          ],
+          "default": null,
+          "description": "Opt-in external footer value. Runtime execution additionally requires this table to originate in user config or explicit session flags."
         },
         "status_line_use_colors": {
           "default": true,
