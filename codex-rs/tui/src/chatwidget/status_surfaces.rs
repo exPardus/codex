@@ -711,6 +711,7 @@ impl ChatWidget {
     /// git metadata.
     pub(super) fn status_line_value(&mut self, item: StatusLineItem) -> Option<String> {
         match item {
+            StatusLineItem::ExternalCommand => Some(self.status_line_external_value.clone()),
             StatusLineItem::ModelName => Some(self.model_display_name().to_string()),
             StatusLineItem::ModelWithReasoning => Some(self.model_with_reasoning_display_name()),
             StatusLineItem::Reasoning => Some(self.reasoning_display_name()),
@@ -848,6 +849,7 @@ impl ChatWidget {
         item: StatusSurfacePreviewItem,
     ) -> Option<String> {
         let status_line_item = match item {
+            StatusSurfacePreviewItem::ExternalCommand => StatusLineItem::ExternalCommand,
             StatusSurfacePreviewItem::AppName => return Some("codex".to_string()),
             StatusSurfacePreviewItem::ProjectName => return self.terminal_title_project_name(),
             StatusSurfacePreviewItem::ProjectRoot => StatusLineItem::ProjectRoot,

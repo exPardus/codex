@@ -129,6 +129,26 @@ impl ChatWidget {
             "status line setup confirmed with items: {items:#?}, use_theme_colors: {use_theme_colors}"
         );
         let ids = items.iter().map(ToString::to_string).collect::<Vec<_>>();
+        let external_selected = items.contains(&StatusLineItem::ExternalCommand);
+        if external_selected && self.status_line_external_stop.is_none() {
+            self.status_line_external_owner = uuid::Uuid::new_v4();
+            self.status_line_external_value = "fleet unavailable".to_string();
+            self.status_line_external_stop =
+                crate::external_status_line::trusted_command(&self.config.config_layer_stack)
+                    .and_then(|command| {
+                        crate::external_status_line::start(
+                            command,
+                            self.app_event_tx.clone(),
+                            self.status_line_external_owner,
+                        )
+                    });
+        } else if !external_selected {
+            if let Some(stop) = self.status_line_external_stop.take() {
+                let _ = stop.send(());
+            }
+            self.status_line_external_owner = uuid::Uuid::new_v4();
+            self.status_line_external_value = "fleet unavailable".to_string();
+        }
         self.local_settings.tui.status_line = Some(ids);
         self.local_settings.tui.status_line_use_colors = use_theme_colors;
         self.refresh_status_line();
@@ -188,6 +208,13 @@ impl ChatWidget {
         self.status_line_branch_pending = false;
         self.status_line_branch_lookup_complete = true;
         self.refresh_status_surfaces();
+    }
+
+    pub(crate) fn set_status_line_external_value(&mut self, owner: uuid::Uuid, value: String) {
+        if owner == self.status_line_external_owner {
+            self.status_line_external_value = value;
+            self.refresh_status_surfaces();
+        }
     }
 
     /// Stores async Git summary lookup results for the current status-line cwd.

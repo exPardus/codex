@@ -740,6 +740,9 @@ pub(crate) struct ChatWidget {
     status_line_project_root_name_cache: Option<CachedProjectRootName>,
     // Cached git branch name for the status line (None if unknown).
     status_line_branch: Option<String>,
+    status_line_external_value: String,
+    status_line_external_owner: uuid::Uuid,
+    status_line_external_stop: Option<tokio::sync::oneshot::Sender<()>>,
     // CWD used to resolve the cached branch; change resets branch state.
     status_line_branch_cwd: Option<PathBuf>,
     // True while an async branch lookup is in flight.
@@ -2041,6 +2044,9 @@ fn has_websocket_timing_metrics(summary: RuntimeMetricsSummary) -> bool {
 
 impl Drop for ChatWidget {
     fn drop(&mut self) {
+        if let Some(stop) = self.status_line_external_stop.take() {
+            let _ = stop.send(());
+        }
         if self.realtime_conversation.handle.is_some()
             && let Some(thread_id) = self.thread_id
         {

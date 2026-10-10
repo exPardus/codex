@@ -889,6 +889,11 @@ pub struct Tui {
     #[serde(default)]
     pub status_line: Option<Vec<String>>,
 
+    /// Opt-in external footer value. Runtime execution additionally requires this
+    /// table to originate in user config or explicit session flags.
+    #[serde(default)]
+    pub status_line_command: Option<StatusLineCommand>,
+
     /// Color status line items with colors derived from the active syntax theme.
     /// Defaults to `true`.
     #[serde(default = "default_true")]
@@ -948,6 +953,31 @@ pub struct Tui {
     #[serde(default)]
     #[schemars(range(min = 0))]
     pub terminal_resize_reflow_max_rows: Option<usize>,
+}
+
+/// A direct executable and argv for one cached composer-footer item.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct StatusLineCommand {
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default = "status_line_refresh_default")]
+    pub refresh_interval_ms: u64,
+    #[serde(default = "status_line_timeout_default")]
+    pub timeout_ms: u64,
+    #[serde(default = "status_line_output_default")]
+    pub max_output_bytes: usize,
+}
+
+fn status_line_refresh_default() -> u64 {
+    5_000
+}
+fn status_line_timeout_default() -> u64 {
+    500
+}
+fn status_line_output_default() -> usize {
+    512
 }
 
 const fn default_true() -> bool {
